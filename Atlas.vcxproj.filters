@@ -98,4 +98,9 @@
       <Filter>docs</Filter>
     </CopyFileToFolders>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="docs\Atlas.docx">
+      <Filter>docs</Filter>
+    </None>
+  </ItemGroup>
 </Project>
