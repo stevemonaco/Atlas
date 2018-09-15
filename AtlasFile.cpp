@@ -26,57 +26,74 @@ AtlasFile::AtlasFile()
 
 	FixedPadValue = 0;
 	StringLength = 0;
+
+	FillBlocks = false;
+	FillValue = 0;
 }
 
 AtlasFile::~AtlasFile()
 {
-	if(tfile != NULL)
+	if (tfile != NULL)
 		fclose(tfile);
-	if(pfile != NULL)
+	if (pfile != NULL)
 		fclose(pfile);
 }
 
-bool AtlasFile::OpenFileT(const char* FileName)
+bool AtlasFile::OpenFileT(const char* Filename)
 {
 	// Reset vars for new file
 	MaxScriptPos = -1;
 
-	tfile = fopen(FileName, "r+b");
+	// Try to open existing first
+	tfile = fopen(Filename, "rb+");
+
+	// If failed, then create new file
+	if (tfile == NULL)
+	{
+		tfile = fopen(Filename, "wb+");
+	}
+
 	return tfile != NULL;
 }
 
 bool AtlasFile::OpenFileP(const char* Filename)
 {
-	pfile = fopen(Filename, "r+b");
+	// Try to open existing first
+	pfile = fopen(Filename, "rb+");
+
+	// If failed, then create new file
+	if (pfile == NULL)
+		pfile = fopen(Filename, "wb+");
+
 	return pfile != NULL;
 }
 
 void AtlasFile::CloseFileT()
 {
-	if(tfile != NULL)
+	if (tfile != NULL)
 		fclose(tfile);
 }
 
 void AtlasFile::CloseFileP()
 {
-	if(pfile != NULL)
+	if (pfile != NULL)
 		fclose(pfile);
 }
 
-void AtlasFile::WriteP(const void* Data, const unsigned int Size, 
-					  const unsigned int DataCount, const unsigned int Pos)
+void AtlasFile::WriteP(const void* Data, const unsigned int Size,
+	const unsigned int DataCount, const unsigned int Pos)
 {
 	unsigned int OldPos = ftell(pfile);
-	fseek(pfile, Pos, SEEK_SET);
-	fwrite(Data, Size, DataCount, pfile);
+	int i = fseek(pfile, Pos, SEEK_SET);
+	int j = fwrite(Data, Size, DataCount, pfile);
 	fseek(pfile, OldPos, SEEK_SET);
 }
 
-void AtlasFile::WriteT(const void* Data, const unsigned int Size, 
-					  const unsigned int DataCount, const unsigned int Pos)
+void AtlasFile::WriteT(const void* Data, const unsigned int Size,
+	const unsigned int DataCount, const unsigned int Pos)
 {
 	unsigned int OldPos = ftell(tfile);
-	fseek(tfile, Pos, SEEK_SET);
+	int i = fseek(tfile, Pos, SEEK_SET);
 	fwrite(Data, Size, DataCount, tfile);
 	fseek(tfile, OldPos, SEEK_SET);
 }
@@ -97,9 +114,69 @@ FILE* AtlasFile::GetFileT()
 	return tfile;
 }
 
+void AtlasFile::FillT(const unsigned char Data, const unsigned int DataCount)
+{
+	unsigned char* DataArray = new unsigned char[DataCount];
+
+	memset(DataArray, Data, DataCount);
+
+	fwrite(DataArray, 1, DataCount, tfile);
+	delete[] DataArray;
+}
+
+int AtlasFile::InsertBinaryT(string Filename, const unsigned int StartOffset, const unsigned int Size)
+{
+	unsigned int copysize;
+	unsigned int filesize;
+	FILE* f = fopen(Filename.c_str(), "rb");
+
+	if (f == NULL)
+	{
+		Logger.ReportError(__LINE__, "INSERTBINARY Could not open file %s for reading", Filename);
+		return 0;
+	}
+
+	fseek(f, 0, SEEK_END);
+	filesize = ftell(f);
+
+	if (Size == 0) // 0 param means to copy remainder of file
+		copysize = filesize - StartOffset;
+	else
+	{
+		copysize = Size;
+		if ((StartOffset + copysize) > filesize) // User requested to copy too many bytes, warn and copy to end of file
+		{
+			Logger.ReportWarning(CurrentLine, "INSERTBINARY User requested to copy more bytes than available, size truncated to end of file");
+			copysize = filesize - StartOffset;
+		}
+	}
+
+	fseek(f, StartOffset, SEEK_SET);
+	unsigned char* data = new unsigned char[copysize];
+	fread(data, 1, copysize, f);
+	fclose(f);
+
+	WriteT(data, 1, copysize);
+	delete[] data;
+
+	return copysize;
+}
+
 FILE* AtlasFile::GetFileP()
 {
 	return pfile;
+}
+
+void AtlasFile::FillBlock()
+{
+	if (MaxScriptPos == -1 || !FillBlocks)
+		return;
+
+	int CurPos = GetPosT();
+	int EndPos = MaxScriptPos;
+	int Size = EndPos - CurPos + 1; // ScriptBound is inclusive, so we need to write one more byte
+
+	FillT(FillValue, Size);
 }
 
 void AtlasFile::GetScriptBuf(std::list<TBL_STRING>& Strings)
@@ -119,15 +196,22 @@ unsigned int AtlasFile::GetStringType()
 
 void AtlasFile::MoveT(const unsigned int Pos, const unsigned int ScriptBound)
 {
-	if(tfile)
+	if (tfile)
+	{
+		FillBlock();
 		fseek(tfile, Pos, SEEK_SET);
-	MaxScriptPos = ScriptBound;
+		MaxScriptPos = ScriptBound;
+	}
 }
 
 void AtlasFile::MoveT(const unsigned int Pos)
 {
-	if(tfile)
+	if (tfile)
+	{
+		FillBlock();
 		fseek(tfile, Pos, SEEK_SET);
+		MaxScriptPos = -1;
+	}
 }
 
 void AtlasFile::SetTable(Table* Tbl)
@@ -138,9 +222,9 @@ void AtlasFile::SetTable(Table* Tbl)
 
 bool AtlasFile::SetStringType(std::string& Type)
 {
-	for(int i = 0; i < StringTypeCount; i++)
+	for (int i = 0; i < StringTypeCount; i++)
 	{
-		if(Type == StringTypes[i])
+		if (Type == StringTypes[i])
 		{
 			StrType = i;
 			return true;
@@ -152,7 +236,7 @@ bool AtlasFile::SetStringType(std::string& Type)
 
 bool AtlasFile::SetPascalLength(unsigned int Length)
 {
-	switch(Length)
+	switch (Length)
 	{
 	case 1: case 2: case 3: case 4:
 		PascalLength = Length;
@@ -165,7 +249,7 @@ bool AtlasFile::SetPascalLength(unsigned int Length)
 
 bool AtlasFile::SetFixedLength(unsigned int StrLength, unsigned int PadValue)
 {
-	if(PadValue > 65536)
+	if (PadValue > 65536)
 		return false;
 
 	StringLength = StrLength;
@@ -174,22 +258,34 @@ bool AtlasFile::SetFixedLength(unsigned int StrLength, unsigned int PadValue)
 	return true;
 }
 
+void AtlasFile::EnableFillBlock(unsigned char FillByte)
+{
+	FillBlocks = true;
+	FillValue = FillByte;
+}
+
 bool AtlasFile::DisableWrite(string& EndTag, bool isPointerTable)
 {
-	if(isPointerTable)
+	if (isPointerTable)
 	{
 		std::map<string, PointerTable*>::iterator it;
 		it = TblAutoWrite.find(EndTag);
-		if(it == TblAutoWrite.end())
+		if (it == TblAutoWrite.end())
+		{
+			Logger.ReportError(CurrentLine, "'%s' is not currently an enabled AUTOWRITE end token", EndTag);
 			return false;
+		}
 		TblAutoWrite.erase(it);
 	}
 	else
 	{
 		std::map<string, PointerList*>::iterator it;
 		it = ListAutoWrite.find(EndTag);
-		if(it == ListAutoWrite.end())
+		if (it == ListAutoWrite.end())
+		{
+			Logger.ReportError(CurrentLine, "'%s' is not currently an enabled AUTOWRITE end token", EndTag);
 			return false;
+		}
 		ListAutoWrite.erase(it);
 	}
 	return true;
@@ -199,7 +295,7 @@ bool AtlasFile::DisableAutoExtension(string& FuncName, string& EndTag)
 {
 	std::map<string, ExtensionFunction>::iterator it;
 	it = ExtAutoWrite.find(EndTag);
-	if(it == ExtAutoWrite.end())
+	if (it == ExtAutoWrite.end())
 	{
 		Logger.ReportError(CurrentLine, "'%s' has not been defined as an autoexec end token", EndTag);
 		return false;
@@ -211,26 +307,40 @@ bool AtlasFile::DisableAutoExtension(string& FuncName, string& EndTag)
 bool AtlasFile::AutoWrite(PointerList* List, string& EndTag)
 {
 	bool EndTokenFound = false;
-	for(size_t i = 0; i < ActiveTbl->EndTokens.size(); i++)
+
+	if (ActiveTbl == NULL)
 	{
-		if(EndTag == ActiveTbl->EndTokens[i])
+		Logger.ReportError(CurrentLine, "You must enable a table with #ACTIVETBL before using #AUTOWRITE");
+		return false;
+	}
+
+	for (size_t i = 0; i < ActiveTbl->EndTokens.size(); i++)
+	{
+		if (EndTag == ActiveTbl->EndTokens[i])
 			EndTokenFound = true;
 	}
-	if(EndTokenFound)
-		ListAutoWrite.insert(map<string,PointerList*>::value_type(EndTag, List));
+	if (EndTokenFound)
+		ListAutoWrite.insert(map<string, PointerList*>::value_type(EndTag, List));
 	return EndTokenFound;
 }
 
 bool AtlasFile::AutoWrite(PointerTable* Tbl, string& EndTag)
 {
 	bool EndTokenFound = false;
-	for(size_t i = 0; i < ActiveTbl->EndTokens.size(); i++)
+
+	if (ActiveTbl == NULL)
 	{
-		if(EndTag == ActiveTbl->EndTokens[i])
+		Logger.ReportError(CurrentLine, "You must enable a table with #ACTIVETBL before using #AUTOWRITE");
+		return false;
+	}
+
+	for (size_t i = 0; i < ActiveTbl->EndTokens.size(); i++)
+	{
+		if (EndTag == ActiveTbl->EndTokens[i])
 			EndTokenFound = true;
 	}
-	if(EndTokenFound)
-		TblAutoWrite.insert(map<string,PointerTable*>::value_type(EndTag, Tbl));
+	if (EndTokenFound)
+		TblAutoWrite.insert(map<string, PointerTable*>::value_type(EndTag, Tbl));
 	return EndTokenFound;
 }
 
@@ -239,37 +349,43 @@ bool AtlasFile::AutoWrite(AtlasExtension* Ext, string& FuncName, string& EndTag)
 	bool EndTokenFound = false;
 	ExtensionFunction Func;
 
-	for(size_t i = 0; i < ActiveTbl->EndTokens.size(); i++)
+	if (ActiveTbl == NULL)
 	{
-		if(EndTag == ActiveTbl->EndTokens[i])
+		Logger.ReportError(CurrentLine, "You must enable a table with #ACTIVETBL before using #AUTOWRITE");
+		return false;
+	}
+
+	for (size_t i = 0; i < ActiveTbl->EndTokens.size(); i++)
+	{
+		if (EndTag == ActiveTbl->EndTokens[i])
 			EndTokenFound = true;
 	}
 	Func = Ext->GetFunction(FuncName);
-	if(!EndTokenFound)
+	if (!EndTokenFound)
 	{
 		Logger.ReportError(CurrentLine, "'%s' has not been defined as an end token in the active table", EndTag);
 		return false;
 	}
-	if(Func == NULL)
+	if (Func == NULL)
 	{
 		Logger.ReportError(CurrentLine, "Function 's' could not be found in the extension", FuncName);
 		return false;
 	}
 
-	ExtAutoWrite.insert(map<string,ExtensionFunction>::value_type(EndTag, Func));
+	ExtAutoWrite.insert(map<string, ExtensionFunction>::value_type(EndTag, Func));
 	return true;
 }
 
 bool AtlasFile::InsertText(string& Text, unsigned int Line)
 {
-	if(ActiveTbl == NULL)
+	if (ActiveTbl == NULL)
 	{
 		// Add error
 		printf("No active table loaded\n");
 		return false;
 	}
 	unsigned int BadCharPos = 0;
-	if(ActiveTbl->EncodeStream(Text, BadCharPos) == -1) // Failed insertion, char missing from tbl
+	if (ActiveTbl->EncodeStream(Text, BadCharPos) == -1) // Failed insertion, char missing from tbl
 	{
 		// Add error
 		Logger.ReportError(Line, "Character '%c' missing from table.  String = '%s'", Text[BadCharPos], Text.c_str());
@@ -285,32 +401,32 @@ bool AtlasFile::FlushText()
 	static unsigned int WritePos;
 	AtlasContext* Context = NULL;
 
-	if(ActiveTbl == NULL)
+	if (ActiveTbl == NULL)
 		return false;
 
-	if(ActiveTbl->StringTable.empty())
+	if (ActiveTbl->StringTable.empty())
 		return true;
 
 	// For every string, check autowrite/autoexec (list, table, and extension)
 	// Automatically write pointer if appropriate end string is found, then write the text string to ROM
 	ListTxtStringIt j = ActiveTbl->TxtStringTable.begin();
-	for(ListTblStringIt i = ActiveTbl->StringTable.begin();
+	for (ListTblStringIt i = ActiveTbl->StringTable.begin();
 		i != ActiveTbl->StringTable.end(); i++, j++)
 	{
 		// #ALIGNSTRING, must do before autowrite writes a pointer
 		AlignString();
-		
-		if(!i->EndToken.empty()) // If there's an end token, check for autowrite
+
+		if (!i->EndToken.empty()) // If there's an end token, check for autowrite
 		{
 			ListIt = ListAutoWrite.find(i->EndToken);
-			if(ListIt != ListAutoWrite.end())
+			if (ListIt != ListAutoWrite.end())
 			{
 				Address = ListIt->second->GetAddress(GetPosT(), Size, WritePos);
-				if(Address != -1)
+				if (Address != -1)
 				{
-					if(bSwap)
-						Address = EndianSwap(Address, Size/8);
-					WriteP(&Address, Size/8, 1, WritePos);
+					if (bSwap)
+						Address = EndianSwap(Address, Size / 8);
+					WriteP(&Address, Size / 8, 1, WritePos);
 					Logger.Log("%6u AUTOWRITE Invoked ScriptPos $%X PointerPos $%X PointerValue $%08X\n", CurrentLine,
 						GetPosT(), WritePos, Address);
 					Stats.IncAutoPointerWrites();
@@ -319,24 +435,24 @@ bool AtlasFile::FlushText()
 					Stats.IncFailedListWrites();
 			}
 			TblIt = TblAutoWrite.find(i->EndToken);
-			if(TblIt != TblAutoWrite.end())
+			if (TblIt != TblAutoWrite.end())
 			{
 				Address = TblIt->second->GetAddress(GetPosT(), Size, WritePos);
-				if(bSwap)
-					Address = EndianSwap(Address, Size/8);
-				WriteP(&Address, Size/8, 1, WritePos);
+				if (bSwap)
+					Address = EndianSwap(Address, Size / 8);
+				WriteP(&Address, Size / 8, 1, WritePos);
 				Logger.Log("%6u AUTOWRITE Invoked ScriptPos $%X PointerPos $%X PointerValue $%08X\n", CurrentLine,
 					GetPosT(), WritePos, Address);
 				Stats.IncAutoPointerWrites();
 			}
 			ExtIt = ExtAutoWrite.find(i->EndToken);
-			if(ExtIt != ExtAutoWrite.end())
+			if (ExtIt != ExtAutoWrite.end())
 			{
 				Atlas.CreateContext(&Context);
 				bool Success = Atlas.ExecuteExtensionFunction(ExtIt->second, &Context);
 				delete Context;
 				Context = NULL;
-				if(!Success)
+				if (!Success)
 				{
 					Logger.ReportError(CurrentLine, "Autoexecuting extension with end token '%s' failed", i->EndToken);
 					return false;
@@ -364,20 +480,20 @@ inline bool AtlasFile::WriteString(string& text)
 	int PadBytes;
 
 	// Write string type
-	if(StrType == STR_ENDTERM)
+	if (StrType == STR_ENDTERM)
 		StringSize = WriteNullString(text);
-	else if(StrType == STR_PASCAL)
+	else if (StrType == STR_PASCAL)
 		StringSize = WritePascalString(text);
 	else
 		return false;
 
 	// #FIXEDLENGTH padding
-	if(StringLength != 0)
+	if (StringLength != 0)
 	{
 		PadBytes = StringLength - StringSize;
-		if(PadBytes > 0)
+		if (PadBytes > 0)
 		{
-			for(int i = 0; i < PadBytes; i++)
+			for (int i = 0; i < PadBytes; i++)
 				fputc((int)FixedPadValue, tfile);
 			BytesInserted += PadBytes;
 		}
@@ -394,7 +510,7 @@ inline unsigned int AtlasFile::WriteNullString(string& text)
 	Stats.AddScriptBytes(size);
 
 	// Truncate string if it overflows ROM bounds
-	if(maxwrite < size)
+	if (maxwrite < size)
 	{
 		int overflowbytes = size - maxwrite;
 		TotalBytesSkipped += overflowbytes;
@@ -402,7 +518,7 @@ inline unsigned int AtlasFile::WriteNullString(string& text)
 	}
 
 	// Truncate string if it's too long for a fixed length string
-	if(size > StringLength && StringLength != 0)
+	if (size > StringLength && StringLength != 0)
 	{
 		TotalBytesSkipped += (size - StringLength);
 		size = StringLength;
@@ -420,20 +536,20 @@ inline unsigned int AtlasFile::WritePascalString(string& text)
 	unsigned int size = (unsigned int)text.length();
 	unsigned int maxwrite = GetMaxWritableBytes();
 
-	Stats.AddScriptBytes(size+PascalLength);
+	Stats.AddScriptBytes(size + PascalLength);
 
 	// Truncate string if it overflows ROM bounds
-	if(PascalLength > maxwrite) // PascalLength doesn't even fit
+	if (PascalLength > maxwrite) // PascalLength doesn't even fit
 		goto nowrite;
-	if(maxwrite < size + PascalLength) // PascalLength and maybe partial string fits
+	if (maxwrite < size + PascalLength) // PascalLength and maybe partial string fits
 	{
-		int overflowbytes = (size+PascalLength) - maxwrite;
+		int overflowbytes = (size + PascalLength) - maxwrite;
 		TotalBytesSkipped += overflowbytes;
 		size = maxwrite - PascalLength;
 	}
 
 	// Truncate string if it's too long for a fixed length string
-	if(size > StringLength && StringLength != 0)
+	if (size > StringLength && StringLength != 0)
 	{
 		TotalBytesSkipped += (size - StringLength);
 		size = StringLength - PascalLength;
@@ -441,28 +557,28 @@ inline unsigned int AtlasFile::WritePascalString(string& text)
 	}
 
 	int swaplen = size;
-	if(bSwap)
+	if (bSwap)
 		swaplen = EndianSwap(size, PascalLength);
 
 	fwrite(&swaplen, PascalLength, 1, tfile);
 	fwrite(text.c_str(), 1, size, tfile);
-	BytesInserted += size+PascalLength;
+	BytesInserted += size + PascalLength;
 
 nowrite:
-	return size+PascalLength;
+	return size + PascalLength;
 }
 
 inline void AtlasFile::AlignString()
 {
-	if(StringAlign != 0) // String align turned on
+	if (StringAlign != 0) // String align turned on
 	{
 		int curoffset = GetPosT() - Atlas.GetHeaderSize();
 		int PadBytes = StringAlign - (curoffset % StringAlign);
-		if(PadBytes == StringAlign)
+		if (PadBytes == StringAlign)
 			PadBytes = 0;
-		if(PadBytes > 0)
+		if (PadBytes > 0)
 		{
-			for(int i = 0; i < PadBytes; i++)
+			for (int i = 0; i < PadBytes; i++)
 				fputc(0, tfile);
 			BytesInserted += PadBytes;
 		}
@@ -471,10 +587,10 @@ inline void AtlasFile::AlignString()
 
 inline unsigned int AtlasFile::GetMaxWritableBytes()
 {
-	if(MaxScriptPos == -1)
+	if (MaxScriptPos == -1)
 		return -1;
 	unsigned int CurPos = ftell(tfile);
-	if(CurPos > MaxScriptPos)
+	if (CurPos > MaxScriptPos)
 		return 0;
 	return MaxScriptPos - CurPos + 1;
 }

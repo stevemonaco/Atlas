@@ -1,6 +1,9 @@
 #pragma once
 #include <list>
+#include <string>
 #include "AtlasTypes.h"
+
+using namespace std;
 
 class InsertionStatistics
 {
@@ -8,12 +11,13 @@ public:
 	InsertionStatistics();
 	void AddStats(InsertionStatistics& Stats);
 	void ClearStats();
-	void Init(unsigned int StartPos, unsigned int UpperBound, unsigned int LineStart);
+	void Init(unsigned int StartPos, unsigned int UpperBound, unsigned int LineStart, const string& BlockName);
 	void AddCmd(unsigned int CmdNum);
 	bool HasCommands();
 
 	InsertionStatistics& operator=(const InsertionStatistics& rhs);
 
+	string Name;
 	unsigned int StartPos;
 	unsigned int ScriptSize;
 	unsigned int ScriptOverflowed;
@@ -40,7 +44,7 @@ public:
 
 	std::list<InsertionStatistics> Stats;
 
-	void NewStatsBlock(unsigned int StartPos, unsigned int UpperBound, unsigned int LineStart);
+	void NewStatsBlock(unsigned int StartPos, unsigned int UpperBound, unsigned int LineStart, const string& BlockName);
 	void AddCmd(unsigned int CmdNum);
 	void AddScriptBytes(unsigned int Count);
 	void End(unsigned int EndLine);

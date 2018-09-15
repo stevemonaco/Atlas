@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <list>
 #include <cstdlib>
+#include <string>
 #include "AtlasTypes.h"
 #include "AtlasLogger.h"
 #include "AtlasStats.h"
@@ -12,13 +13,14 @@ InsertionStatistics::InsertionStatistics()
 	ClearStats();
 }
 
-void InsertionStatistics::Init(unsigned int StartPos, unsigned int UpperBound, unsigned int LineStart)
+void InsertionStatistics::Init(unsigned int StartPos, unsigned int UpperBound, unsigned int LineStart, const string& BlockName)
 {
 	ClearStats();
 	this->StartPos = StartPos;
 	this->LineStart = LineStart;
-	if(UpperBound != -1)
+	if (UpperBound != -1)
 		MaxBound = UpperBound;
+	Name = BlockName;
 }
 
 void InsertionStatistics::AddStats(InsertionStatistics& Stats)
@@ -32,7 +34,7 @@ void InsertionStatistics::AddStats(InsertionStatistics& Stats)
 	FailedListWrites += Stats.FailedListWrites;
 	ExtPointerWrites += Stats.ExtPointerWrites;
 
-	for(int j = 0; j < CommandCount; j++)
+	for (int j = 0; j < CommandCount; j++)
 		ExecCount[j] += Stats.ExecCount[j];
 }
 
@@ -58,7 +60,7 @@ void InsertionStatistics::ClearStats()
 void InsertionStatistics::AddCmd(unsigned int CmdNum)
 {
 	ExecCount[CmdNum]++;
-	switch(CmdNum)
+	switch (CmdNum)
 	{
 	case CMD_WUB: case CMD_WBB: case CMD_WHB: case CMD_WLB: case CMD_WHW:
 	case CMD_W16: case CMD_W24:	case CMD_W32: case CMD_WRITEPTR:
@@ -73,8 +75,8 @@ void InsertionStatistics::AddCmd(unsigned int CmdNum)
 
 bool InsertionStatistics::HasCommands()
 {
-	for(unsigned int i = 0; i < CommandCount; i++)
-		if(ExecCount[i] != 0)
+	for (unsigned int i = 0; i < CommandCount; i++)
+		if (ExecCount[i] != 0)
 			return true;
 
 	return false;
@@ -82,7 +84,7 @@ bool InsertionStatistics::HasCommands()
 
 InsertionStatistics& InsertionStatistics::operator=(const InsertionStatistics& rhs)
 {
-	if(this == &rhs)
+	if (this == &rhs)
 		return *this;
 
 	ScriptSize = rhs.ScriptSize;
@@ -97,7 +99,9 @@ InsertionStatistics& InsertionStatistics::operator=(const InsertionStatistics& r
 	LineStart = rhs.LineStart;
 	LineEnd = rhs.LineEnd;
 
-	for(unsigned int i = 0; i < CommandCount; i++)
+	Name = rhs.Name;
+
+	for (unsigned int i = 0; i < CommandCount; i++)
 		ExecCount[i] = rhs.ExecCount[i];
 
 	return *this;
@@ -111,22 +115,22 @@ StatisticsHandler::~StatisticsHandler()
 {
 }
 
-void StatisticsHandler::NewStatsBlock(unsigned int StartPos, unsigned int UpperBound, unsigned int LineStart)
+void StatisticsHandler::NewStatsBlock(unsigned int StartPos, unsigned int UpperBound, unsigned int LineStart, const string& BlockName)
 {
-	if(CurBlock.LineStart != 0) // If not first block
+	if (CurBlock.LineStart != 0) // If not first block
 	{
 		CurBlock.ScriptOverflowed = 0;
 		CurBlock.SpaceRemaining = 0;
 
-		if(CurBlock.MaxBound != -1) // if there is a MaxBound, calc overflow and remaining space
+		if (CurBlock.MaxBound != -1) // if there is a MaxBound, calc overflow and remaining space
 		{
-			if(CurBlock.StartPos + CurBlock.ScriptSize > CurBlock.MaxBound+1)
+			if (CurBlock.StartPos + CurBlock.ScriptSize > CurBlock.MaxBound + 1)
 				CurBlock.ScriptOverflowed = CurBlock.StartPos + CurBlock.ScriptSize - CurBlock.MaxBound;
 			else
 				CurBlock.ScriptOverflowed = 0;
 
-			if(CurBlock.MaxBound+1 > (CurBlock.StartPos + CurBlock.ScriptSize))
-				CurBlock.SpaceRemaining = CurBlock.MaxBound+1 - (CurBlock.StartPos + CurBlock.ScriptSize);
+			if (CurBlock.MaxBound + 1 > (CurBlock.StartPos + CurBlock.ScriptSize))
+				CurBlock.SpaceRemaining = CurBlock.MaxBound + 1 - (CurBlock.StartPos + CurBlock.ScriptSize);
 			else
 				CurBlock.SpaceRemaining = 0;
 		}
@@ -134,12 +138,12 @@ void StatisticsHandler::NewStatsBlock(unsigned int StartPos, unsigned int UpperB
 		Stats.push_back(CurBlock);
 	}
 
-	CurBlock.Init(StartPos, UpperBound, LineStart);
+	CurBlock.Init(StartPos, UpperBound, LineStart, BlockName);
 }
 
 void StatisticsHandler::AddCmd(unsigned int CmdNum)
 {
-	if(CmdNum < CommandCount)
+	if (CmdNum < CommandCount)
 		CurBlock.AddCmd(CmdNum);
 }
 
@@ -175,12 +179,12 @@ void StatisticsHandler::AddScriptBytes(unsigned int Count)
 
 void StatisticsHandler::End(unsigned int EndLine)
 {
-	if(CurBlock.StartPos + CurBlock.ScriptSize > CurBlock.MaxBound)
+	if (CurBlock.StartPos + CurBlock.ScriptSize > CurBlock.MaxBound)
 		CurBlock.ScriptOverflowed = CurBlock.StartPos + CurBlock.ScriptSize - CurBlock.MaxBound;
 	else
 		CurBlock.ScriptOverflowed = 0;
 
-	if(CurBlock.MaxBound != -1 && CurBlock.MaxBound > (CurBlock.StartPos + CurBlock.ScriptSize))
+	if (CurBlock.MaxBound != -1 && CurBlock.MaxBound > (CurBlock.StartPos + CurBlock.ScriptSize))
 		CurBlock.SpaceRemaining = CurBlock.MaxBound - (CurBlock.StartPos + CurBlock.ScriptSize);
 	else
 		CurBlock.SpaceRemaining = 0;
@@ -192,17 +196,17 @@ void StatisticsHandler::End(unsigned int EndLine)
 
 void StatisticsHandler::GenerateTotalStats(InsertionStatistics& Total)
 {
-	if(Stats.empty())
+	if (Stats.empty())
 	{
 		ReportBug("Invalid size for statistics list in StatisticsHandler::GenerateTotalStats");
 		return;
 	}
-	else if(Stats.size() == 1)
+	else if (Stats.size() == 1)
 	{
 		Total = Stats.front();
 		return;
 	}
 
-	for(ListStatsIt i = Stats.begin(); i != Stats.end(); i++)
+	for (ListStatsIt i = Stats.begin(); i != Stats.end(); i++)
 		Total.AddStats(*i);
 }

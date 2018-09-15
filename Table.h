@@ -61,7 +61,7 @@ typedef struct TXT_STRING
 	std::string EndToken;
 } TXT_STRING;
 
-typedef std::map<std::string,std::string> StrStrMap;
+typedef std::map<std::string, std::string> StrStrMap;
 typedef std::list<TBL_STRING>::iterator ListTblStringIt;
 typedef std::list<TXT_STRING>::iterator ListTxtStringIt;
 
@@ -79,9 +79,6 @@ public:
 	unsigned int EncodeStream(std::string& scriptbuf, unsigned int& BadCharOffset);
 
 	std::vector<TBL_ERROR>		Errors;			// Errors
-	std::vector<TBL_BOOKMARK>	Bookmarks;		// Normal bookmarks
-	std::vector<TBL_DUMPMARK>	Dumpmarks;		// Script dump bookmarks
-	std::vector<TBL_INSMARK>	Insertmarks;	// Insertion bookmarks
 	std::list<TBL_STRING>		StringTable;	// (Encoded) String table
 	std::list<TXT_STRING>		TxtStringTable; // Text String Table
 	std::vector<std::string>	EndTokens;		// String end tokens
@@ -94,12 +91,9 @@ public:
 private:
 	inline void InitHexTable();
 
-	inline bool parsebookmark(std::ifstream& file);
-	inline bool parseendline(std::ifstream& file);
-	inline bool parseendstring(std::ifstream& file);
-	inline bool parseentry(std::ifstream& file);
-	inline bool parsescriptinsert(std::ifstream& file);
-	inline bool parsescriptdump(std::ifstream& file);
+	inline bool parseendline(std::string line);
+	inline bool parseendstring(std::string line);
+	inline bool parseentry(std::string line);
 	inline void parsews(std::ifstream& file);
 
 	inline std::string& GetHexValue(std::string& Textstring);

@@ -32,7 +32,7 @@ public:
 
 private:
 	FILE* output;
-	static const unsigned int BufSize = 512;
+	static const unsigned int BufSize = 2048;
 	char buf[BufSize];
 	bool isLogging;
 };

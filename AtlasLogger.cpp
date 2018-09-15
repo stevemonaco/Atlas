@@ -18,7 +18,7 @@ AtlasLogger::AtlasLogger()
 
 AtlasLogger::~AtlasLogger()
 {
-	if(output != NULL && output != stdout)
+	if (output != NULL && output != stdout)
 		fclose(output);
 }
 
@@ -33,7 +33,7 @@ void AtlasLogger::ReportError(unsigned int ScriptLine, const char* FormatStr ...
 	int length = _vsnprintf(buf, BufSize, FormatStr, arglist);
 	va_end(arglist);
 
-	Error.Error.assign(buf, length);
+	Error.Error = buf;
 
 	Errors.push_back(Error);
 }
@@ -56,12 +56,13 @@ void AtlasLogger::ReportWarning(unsigned int ScriptLine, const char* FormatStr .
 
 void AtlasLogger::Log(const char* FormatStr ...)
 {
-	if(isLogging && output)
+	if (isLogging && output)
 	{
 		va_list arglist;
 		va_start(arglist, FormatStr);
 		vfprintf(output, FormatStr, arglist);
 		va_end(arglist);
+		fflush(output);
 	}
 }
 

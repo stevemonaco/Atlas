@@ -26,8 +26,8 @@ public:
 	bool DisableWrite(string& EndTag, bool isPointerTable);
 
 	// File functions.  T for text file, P for pointer file
-	bool OpenFileT(const char* FileName);
-	bool OpenFileP(const char* FileName);
+	bool OpenFileT(const char* Filename);
+	bool OpenFileP(const char* Filename);
 	void CloseFileT();
 	void CloseFileP();
 	void MoveT(const unsigned int Pos, const unsigned int ScriptBound);
@@ -35,7 +35,10 @@ public:
 	void WriteP(const void* Data, const unsigned int Size, const unsigned int DataCount, const unsigned int Pos);
 	void WriteT(const void* Data, const unsigned int Size, const unsigned int DataCount, const unsigned int Pos);
 	void WriteT(const void* Data, const unsigned int Size, const unsigned int DataCount);
+	void FillT(const unsigned char Data, const unsigned int DataCount);
+	int InsertBinaryT(string Filename, const unsigned int StartOffset, const unsigned int Size);
 	unsigned int GetPosT();
+	void FillBlock();
 
 	unsigned int GetMaxBound() { return MaxScriptPos; }
 	unsigned int GetBytesInserted() { return BytesInserted; }
@@ -45,6 +48,7 @@ public:
 	bool SetStringType(string& Type);
 	bool SetPascalLength(unsigned int Length);
 	bool SetFixedLength(unsigned int StrLength, unsigned int PadValue);
+	void EnableFillBlock(unsigned char FillByte);
 
 	bool InsertText(string& Text, unsigned int Line);
 	bool FlushText();
@@ -84,4 +88,7 @@ private:
 	unsigned int StringLength;
 	unsigned char FixedPadValue;
 	string CurTextString; // Used to keep track and report text that overflows the FIXEDLENGTH value
+
+	bool FillBlocks;
+	unsigned char FillValue;
 };
