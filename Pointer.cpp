@@ -101,7 +101,7 @@ unsigned int Pointer::GetGBAddress(unsigned int Offset) const
 	unsigned short int Word = 0;
 
 	Bank = Offset / 0x4000;
-	Word = Offset % ((Bank+1) * 0x4000);
+	Word = (Bank == 0) ? Offset : Offset + 0x4000 - (Bank * 0x4000);
 
 	Address = Bank * 0x10000 + Word;
 
