@@ -1,4 +1,4 @@
-// Atlas main
+// Atlas main entry point
 
 #include "stdafx.h"
 #include <ctime>
@@ -18,14 +18,14 @@ int _tmain(int argc, _TCHAR* argv[])
 	Logger.SetLogStatus(false);
 	StartTime = clock();
 
-	printf("Atlas 1.11g by Klarth\n\n");
+	printf("Atlas 1.11h by Klarth\n\n");
 	if (argc != 3 && argc != 5)
 	{
 		printf("Usage: %s [switches] ROM.ext Script.txt\n", argv[0]);
 		printf("Switches: -d filename or -d stdout (debugging)\n");
 		printf("Arguments in brackets are optional\n\n");
 		printf("Press any key to continue\n");
-		getch();
+		(void)getch();
 		return 1;
 	}
 
@@ -50,7 +50,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	printf("Execution time: %u msecs\n", (unsigned int)ElapsedTime);
 
-	getch();
+	(void)getch();
 
 	return retcode;
 }
