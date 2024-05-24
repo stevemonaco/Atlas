@@ -50,7 +50,5 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	printf("Execution time: %u msecs\n", (unsigned int)ElapsedTime);
 
-	(void)getch();
-
 	return retcode;
 }
