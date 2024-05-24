@@ -113,18 +113,10 @@ unsigned char Pointer::GetUpperByte(const unsigned int ScriptPos) const
 	return (GetAddress(ScriptPos) & 0xFF000000) >> 24;
 }
 
-
-
-// #WBB(param) - Working
-
 unsigned char Pointer::GetBankByte(const unsigned int ScriptPos) const
 {
 	return (GetAddress(ScriptPos) & 0xFF0000) >> 16;
 }
-
-
-
-// #WHB(param) - Working
 
 unsigned char Pointer::GetHighByte(const unsigned int ScriptPos) const
 {
@@ -132,42 +124,25 @@ unsigned char Pointer::GetHighByte(const unsigned int ScriptPos) const
 }
 
 
-
-// #WLB(param) - Working
-
 unsigned char Pointer::GetLowByte(const unsigned int ScriptPos) const
 {
 	return GetAddress(ScriptPos) & 0xFF;
 }
-
-
-
-// #W16(param) - Working
 
 unsigned short Pointer::Get16BitPointer(const unsigned int ScriptPos) const
 {
 	return GetAddress(ScriptPos) & 0xFFFF;
 }
 
-
-
-// #W24(param) - Working
-
 unsigned int Pointer::Get24BitPointer(const unsigned int ScriptPos) const
 {
 	return GetAddress(ScriptPos) & 0xFFFFFF;
 }
 
-
-
-// #W32 - Working
-
 unsigned int Pointer::Get32BitPointer(const unsigned int ScriptPos) const
 {
 	return GetAddress(ScriptPos);
 }
-
-// #WHW (Write High Word) - Working
 
 unsigned int Pointer::GetHighWord(const unsigned int ScriptPos) const
 {

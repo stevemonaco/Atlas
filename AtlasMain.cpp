@@ -18,7 +18,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	Logger.SetLogStatus(false);
 	StartTime = clock();
 
-	printf("Atlas 1.11h by Klarth\n\n");
+	printf("Atlas 1.12 by Klarth\n\n");
 	if (argc != 3 && argc != 5)
 	{
 		printf("Usage: %s [switches] ROM.ext Script.txt\n", argv[0]);
